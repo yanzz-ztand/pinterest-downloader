@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Pinterest Downloader</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #0f0f0f;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            margin: auto;
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .desc {
+            color: #999;
+            margin-bottom: 25px;
+        }
+
+        .box {
+            background: #181818;
+            border: 1px solid #292929;
+            border-radius: 14px;
+            padding: 18px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            background: #101010;
+            color: #fff;
+            outline: none;
+            margin-bottom: 12px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 13px;
+            border: 0;
+            border-radius: 10px;
+            background: #fff;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: .85;
+        }
+
+        #status {
+            margin-top: 20px;
+            color: #aaa;
+        }
+
+        .result {
+            margin-top: 20px;
+        }
+
+        .item {
+            background: #181818;
+            border: 1px solid #292929;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+
+        .item-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        img,
+        video {
+            width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            border-radius: 10px;
+            background: #000;
+        }
+
+        a.download {
+            display: block;
+            margin-top: 10px;
+            padding: 11px;
+            text-align: center;
+            background: #fff;
+            color: #000;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="title">
+        Pinterest Downloader
+    </div>
+
+    <div class="desc">
+        Download Pinterest Image & Video
+    </div>
+
+    <div class="box">
+
+        <input
+            id="url"
+            type="text"
+            placeholder="https://pin.it/xxxxxxx"
+        >
+
+        <div class="buttons">
+            <button onclick="downloadPinterest('img')">
+                IMAGE
+            </button>
+
+            <button onclick="downloadPinterest('vid')">
+                VIDEO
+            </button>
+        </div>
+
+        <div id="status"></div>
+
+    </div>
+
+    <div id="result" class="result"></div>
+
+</div>
+
+<script>
+
+const API = "/api/pinterest";
+
+async function downloadPinterest(type) {
+
+    const url = document
+        .getElementById("url")
+        .value
+        .trim();
+
+    const status =
+        document.getElementById("status");
+
+    const result =
+        document.getElementById("result");
+
+    if (!url) {
+        status.textContent =
+            "Masukkan URL Pinterest.";
+        return;
+    }
+
+    result.innerHTML = "";
+
+    status.textContent =
+        "Mengambil data Pinterest...";
+
+    try {
+
+        /*
+         * Endpoint backend kamu harus
+         * menjalankan scraper Pinterest
+         */
+        const response = await fetch(
+            `${API}?url=${encodeURIComponent(url)}`
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "Gagal menghubungi server."
+            );
+        }
+
+        const data =
+            await response.json();
+
+        if (!data.success) {
+            throw new Error(
+                data.message ||
+                "Pinterest tidak ditemukan."
+            );
+        }
+
+        status.textContent = "";
+
+        // =========================
+        // IMAGE
+        // =========================
+
+        if (type === "img") {
+
+            const images =
+                [...new Set(data.images || [])];
+
+            if (!images.length) {
+                status.textContent =
+                    "Gambar tidak ditemukan.";
+                return;
+            }
+
+            images.forEach(
+                (image, index) => {
+
+                    const item =
+                        document.createElement(
+                            "div"
+                        );
+
+                    item.className =
+                        "item";
+
+                    item.innerHTML = `
+                        <div class="item-title">
+                            Image ${index + 1}
+                        </div>
+
+                        <img
+                            src="${image}"
+                            loading="lazy"
+                        >
+
+                        <a
+                            class="download"
+                            href="${image}"
+                            target="_blank"
+                            download
+                        >
+                            DOWNLOAD IMAGE
+                        </a>
+                    `;
+
+                    result.appendChild(item);
+                }
+            );
+
+            return;
+        }
+
+        // =========================
+        // VIDEO
+        // =========================
+
+        if (type === "vid") {
+
+            const resolutions =
+                data.all_resolutions || [];
+
+            if (!resolutions.length) {
+                status.textContent =
+                    "Video tidak ditemukan.";
+                return;
+            }
+
+            // =========================
+            // BURUK
+            // =========================
+
+            const burik =
+                resolutions.find(x =>
+                    x.quality.includes("t1")
+                ) ||
+                resolutions.find(x =>
+                    x.quality.includes("t2")
+                ) ||
+                resolutions[0];
+
+            // =========================
+            // HD
+            // =========================
+
+            const hd =
+                resolutions.find(x =>
+                    x.quality.includes("720p")
+                ) ||
+                resolutions.find(x =>
+                    x.quality.includes("t4")
+                ) ||
+                resolutions.find(x =>
+                    x.quality.includes("t3")
+                );
+
+            // =========================
+            // HD BANGET
+            // =========================
+
+            const hdBanget =
+                resolutions.find(x =>
+                    x.quality.includes("t5")
+                ) ||
+                [...resolutions]
+                    .reverse()
+                    .find(x =>
+                        x.quality.includes("t")
+                    ) ||
+                resolutions[
+                    resolutions.length - 1
+                ];
+
+            const selected = [
+                burik
+                    ? {
+                        ...burik,
+                        label: "Burik"
+                    }
+                    : null,
+
+                hd
+                    ? {
+                        ...hd,
+                        label: "HD"
+                    }
+                    : null,
+
+                hdBanget
+                    ? {
+                        ...hdBanget,
+                        label: "HD Banget"
+                    }
+                    : null
+
+            ].filter(Boolean);
+
+            // Hilangkan URL duplikat
+
+            const unique =
+                selected.filter(
+                    (item, index, self) =>
+                        index ===
+                        self.findIndex(
+                            x =>
+                                x.url === item.url
+                        )
+                );
+
+            unique.forEach(
+                (item, index) => {
+
+                    const element =
+                        document.createElement(
+                            "div"
+                        );
+
+                    element.className =
+                        "item";
+
+                    element.innerHTML = `
+                        <div class="item-title">
+                            ${item.label}
+                        </div>
+
+                        <video
+                            controls
+                            preload="metadata"
+                            src="${item.url}"
+                        ></video>
+
+                        <a
+                            class="download"
+                            href="${item.url}"
+                            target="_blank"
+                            download
+                        >
+                            DOWNLOAD ${item.label.toUpperCase()}
+                        </a>
+                    `;
+
+                    result.appendChild(element);
+                }
+            );
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        status.textContent =
+            "Error: " + error.message;
+    }
+}
+
+</script>
+
+</body>
+</html>
